@@ -1,34 +1,60 @@
-// JWT 토큰 관리 유틸리티
+// 🔒 JWT 토큰 관리 유틸리티 (HTTP-Only Cookie 기반)
 export const TokenStorage = {
-  // 액세스 토큰 저장
+  // 🔒 HTTP-Only 쿠키는 JavaScript로 직접 설정할 수 없음
+  // 서버에서 설정되므로 이 메서드들은 더 이상 사용되지 않음
   setAccessToken: (token) => {
-    localStorage.setItem('accessToken', token);
+    console.warn('HTTP-Only 쿠키는 서버에서만 설정할 수 있습니다.');
   },
 
-  // 리프레시 토큰 저장
   setRefreshToken: (token) => {
-    localStorage.setItem('refreshToken', token);
+    console.warn('HTTP-Only 쿠키는 서버에서만 설정할 수 있습니다.');
   },
 
-  // 액세스 토큰 조회
+  // 🔒 HTTP-Only 쿠키는 JavaScript로 직접 읽을 수 없음
+  // API 호출을 통해 토큰 유효성을 확인해야 함
   getAccessToken: () => {
-    return localStorage.getItem('accessToken');
+    console.warn('HTTP-Only 쿠키는 JavaScript로 직접 읽을 수 없습니다. API 호출로 검증하세요.');
+    return null;
   },
 
-  // 리프레시 토큰 조회
   getRefreshToken: () => {
-    return localStorage.getItem('refreshToken');
+    console.warn('HTTP-Only 쿠키는 JavaScript로 읽을 수 없습니다.');
+    return null;
   },
 
-  // 모든 토큰 삭제
-  clearTokens: () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+  // 🔒 로그아웃 시 서버 API를 통해 쿠키 삭제
+  clearTokens: async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include' // 쿠키 포함
+      });
+      
+      if (response.ok) {
+        console.log('로그아웃 성공 - 쿠키가 서버에서 삭제되었습니다.');
+        return true;
+      } else {
+        console.error('로그아웃 실패');
+        return false;
+      }
+    } catch (error) {
+      console.error('로그아웃 중 오류:', error);
+      return false;
+    }
   },
 
-  // 토큰 존재 여부 확인
-  hasTokens: () => {
-    return !!(localStorage.getItem('accessToken') && localStorage.getItem('refreshToken'));
+  // 🔒 API 호출을 통해 토큰 유효성 확인
+  hasTokens: async () => {
+    try {
+      const response = await fetch('/api/auth/verify', {
+        method: 'GET',
+        credentials: 'include' // 쿠키 포함
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('토큰 검증 중 오류:', error);
+      return false;
+    }
   },
 
   // JWT 토큰 파싱 (payload 추출)

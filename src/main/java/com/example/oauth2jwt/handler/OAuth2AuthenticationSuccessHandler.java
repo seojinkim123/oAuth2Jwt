@@ -5,6 +5,7 @@ import com.example.oauth2jwt.entity.User;
 import com.example.oauth2jwt.repository.UserRepository;
 import com.example.oauth2jwt.util.JwtUtil;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -13,10 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -44,10 +43,24 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String token = jwtUtil.generateToken(email);
         String refreshToken = jwtUtil.generateRefreshToken(email);
         
-        String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:3000/oauth2/redirect")
-                .queryParam("token", token)
-                .queryParam("refreshToken", refreshToken)
-                .build().toUriString();
+        // 🔒 HTTP-Only 쿠키로 토큰 설정 (보안 강화)
+        Cookie accessCookie = new Cookie("accessToken", token);
+        accessCookie.setHttpOnly(true);
+        accessCookie.setSecure(false); // HTTPS 환경에서는 true로 설정
+        accessCookie.setPath("/");
+        accessCookie.setMaxAge(3600); // 1시간
+        
+        Cookie refreshCookie = new Cookie("refreshToken", refreshToken);
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(false); // HTTPS 환경에서는 true로 설정
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(604800); // 7일
+        
+        response.addCookie(accessCookie);
+        response.addCookie(refreshCookie);
+        
+        // 🔒 토큰 없는 안전한 리다이렉트
+        String targetUrl = "http://localhost:3000/oauth2/redirect?success=true";
         
         log.info("OAuth2 login success for user: {}", email);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);

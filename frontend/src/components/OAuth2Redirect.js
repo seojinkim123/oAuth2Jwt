@@ -3,25 +3,35 @@ import { TokenStorage } from '../utils/tokenStorage';
 
 const OAuth2Redirect = ({ onLoginSuccess }) => {
   useEffect(() => {
-    // URL에서 토큰 파라미터 추출
+    // 🔒 URL 파라미터에서 성공 여부만 확인 (토큰은 더 이상 URL에 없음)
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const refreshToken = urlParams.get('refreshToken');
+    const success = urlParams.get('success');
 
-    if (token && refreshToken) {
-      // 토큰 저장
-      TokenStorage.setAccessToken(token);
-      TokenStorage.setRefreshToken(refreshToken);
-      
-      console.log('OAuth2 로그인 성공, 토큰 저장 완료');
-      
-      // 부모 컴포넌트에 로그인 성공 알림
-      onLoginSuccess();
-      
-      // URL 정리 (토큰 제거)
-      window.history.replaceState({}, document.title, window.location.pathname);
+    if (success === 'true') {
+      // 🔒 HTTP-Only 쿠키에 토큰이 자동으로 설정되어 있음
+      // 토큰 존재 여부 확인을 위해 API 호출로 검증
+      fetch('/api/auth/verify', {
+        method: 'GET',
+        credentials: 'include' // 쿠키 포함
+      })
+      .then(response => {
+        if (response.ok) {
+          console.log('OAuth2 로그인 성공, 쿠키 기반 인증 설정 완료');
+          
+          // 부모 컴포넌트에 로그인 성공 알림
+          onLoginSuccess();
+          
+          // URL 정리
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+          console.error('OAuth2 로그인 실패: 토큰 검증 실패');
+        }
+      })
+      .catch(error => {
+        console.error('OAuth2 로그인 검증 중 오류:', error);
+      });
     } else {
-      console.error('OAuth2 로그인 실패: 토큰을 찾을 수 없습니다.');
+      console.error('OAuth2 로그인 실패: success 파라미터가 없습니다.');
     }
   }, [onLoginSuccess]);
 
