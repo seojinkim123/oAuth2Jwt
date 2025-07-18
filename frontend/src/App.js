@@ -15,14 +15,13 @@ function App() {
     fetchHelloMessage();
   }, []);
 
-  const checkAuthentication = () => {
-    const hasTokens = TokenStorage.hasTokens();
-    const accessToken = TokenStorage.getAccessToken();
-    
-    if (hasTokens && accessToken && !TokenStorage.isTokenExpired(accessToken)) {
-      setIsAuthenticated(true);
-    } else {
-      TokenStorage.clearTokens();
+  const checkAuthentication = async () => {
+    try {
+      // 🔒 쿠키 기반 토큰 검증 API 호출
+      const hasValidToken = await TokenStorage.hasTokens();
+      setIsAuthenticated(hasValidToken);
+    } catch (error) {
+      console.error('인증 확인 중 오류:', error);
       setIsAuthenticated(false);
     }
     setLoading(false);
@@ -42,13 +41,22 @@ function App() {
     setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    try {
+      // 🔒 서버 API를 통해 쿠키 삭제
+      const success = await TokenStorage.clearTokens();
+      if (success) {
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('로그아웃 중 오류:', error);
+      setIsAuthenticated(false); // 오류가 발생해도 클라이언트 상태는 업데이트
+    }
   };
 
-  // OAuth2 리다이렉트 처리
+  // 🔒 OAuth2 리다이렉트 처리 (쿠키 기반)
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('token') && urlParams.get('refreshToken')) {
+  if (urlParams.get('success') === 'true') {
     return <OAuth2Redirect onLoginSuccess={handleLoginSuccess} />;
   }
 
@@ -128,25 +136,25 @@ function App() {
             </div>
           </div>
 
-          {/* 토큰 정보 (개발용) */}
+          {/* 🔒 쿠키 기반 인증 정보 (개발용) */}
           {isAuthenticated && (
             <div className="bg-white overflow-hidden shadow rounded-lg mt-6">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  토큰 정보 (개발용)
+                  인증 정보 (개발용)
                 </h3>
                 <div className="space-y-2 text-sm">
-                  <div>
-                    <strong>Access Token:</strong>
-                    <div className="bg-gray-100 p-2 rounded mt-1 overflow-auto text-xs">
-                      {TokenStorage.getAccessToken()}
-                    </div>
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <strong className="text-green-800">🔒 보안 강화:</strong>
+                    <p className="text-green-700 mt-1">
+                      JWT 토큰이 HTTP-Only 쿠키에 안전하게 저장되어 JavaScript로 접근할 수 없습니다.
+                    </p>
                   </div>
-                  <div>
-                    <strong>Refresh Token:</strong>
-                    <div className="bg-gray-100 p-2 rounded mt-1 overflow-auto text-xs">
-                      {TokenStorage.getRefreshToken()}
-                    </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                    <strong className="text-blue-800">✅ XSS 공격 방지:</strong>
+                    <p className="text-blue-700 mt-1">
+                      토큰이 더 이상 localStorage나 URL에 노출되지 않습니다.
+                    </p>
                   </div>
                 </div>
               </div>

@@ -24,10 +24,20 @@ const UserProfile = ({ onLogout }) => {
     }
   };
 
-  const handleLogout = () => {
-    TokenStorage.clearTokens();
-    setUser(null);
-    onLogout();
+  const handleLogout = async () => {
+    try {
+      // 🔒 서버 API를 통해 쿠키 삭제
+      const success = await TokenStorage.clearTokens();
+      if (success) {
+        setUser(null);
+        onLogout();
+      }
+    } catch (error) {
+      console.error('로그아웃 중 오류:', error);
+      // 오류가 발생해도 클라이언트 상태는 업데이트
+      setUser(null);
+      onLogout();
+    }
   };
 
   if (loading) {

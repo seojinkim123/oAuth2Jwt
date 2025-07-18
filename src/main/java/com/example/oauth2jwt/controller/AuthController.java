@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
@@ -69,11 +71,44 @@ public class AuthController {
         }
     }
 
+    // 🔧 디버깅용 토큰 정보 조회 API (개발환경에서만 사용)
+    @GetMapping("/debug/token")
+    @org.springframework.context.annotation.Profile("dev")
+    public ResponseEntity<?> debugToken(HttpServletRequest request) {
+        try {
+            String accessToken = getJwtFromCookie(request, "accessToken");
+            String refreshToken = getJwtFromCookie(request, "refreshToken");
+            
+            if (accessToken != null) {
+                String email = jwtUtil.getEmailFromToken(accessToken);
+                boolean isValid = jwtUtil.validateToken(accessToken);
+                
+                return ResponseEntity.ok().body(Map.of(
+                    "accessToken", accessToken,
+                    "refreshToken", refreshToken != null ? refreshToken : "없음",
+                    "email", email,
+                    "valid", isValid,
+                    "message", "토큰 정보 조회 성공"
+                ));
+            } else {
+                return ResponseEntity.ok().body(Map.of("message", "토큰이 없습니다."));
+            }
+        } catch (Exception e) {
+            log.error("토큰 디버깅 중 오류 발생", e);
+            return ResponseEntity.status(500).body(Map.of("error", "토큰 디버깅 중 오류가 발생했습니다."));
+        }
+    }
+
     // 🔒 쿠키에서 JWT 토큰 추출
     private String getJwtFromCookie(HttpServletRequest request) {
+        return getJwtFromCookie(request, "accessToken");
+    }
+    
+    // 🔒 쿠키에서 특정 이름의 JWT 토큰 추출
+    private String getJwtFromCookie(HttpServletRequest request, String cookieName) {
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("accessToken".equals(cookie.getName())) {
+                if (cookieName.equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }

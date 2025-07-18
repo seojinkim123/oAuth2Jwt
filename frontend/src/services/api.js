@@ -1,21 +1,19 @@
 import axios from 'axios';
 import { TokenStorage } from '../utils/tokenStorage';
 
-// Axios 인스턴스 생성
+// 🔒 Axios 인스턴스 생성 (쿠키 기반)
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // 🔒 쿠키 포함하여 요청
 });
 
-// 요청 인터셉터 - 모든 요청에 JWT 토큰 추가
+// 🔒 요청 인터셉터 - HTTP-Only 쿠키 기반이므로 토큰 헤더 설정 불필요
 api.interceptors.request.use(
   (config) => {
-    const token = TokenStorage.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // HTTP-Only 쿠키는 브라우저가 자동으로 포함하므로 별도 처리 불필요
     return config;
   },
   (error) => {
@@ -23,37 +21,25 @@ api.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터 - 토큰 만료 시 자동 갱신
+// 🔒 응답 인터셉터 - 401 오류 시 로그인 페이지로 리다이렉트
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
+    // 401 Unauthorized 오류 시 자동 로그아웃 처리
+    if (error.response?.status === 401) {
+      console.log('인증이 만료되었습니다. 로그인 페이지로 이동합니다.');
+      
+      // 쿠키 기반이므로 서버에서 토큰 삭제 시도
       try {
-        const refreshToken = TokenStorage.getRefreshToken();
-        if (refreshToken) {
-          const response = await axios.post('http://localhost:8080/api/auth/refresh', {
-            refreshToken: refreshToken
-          });
-
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          TokenStorage.setAccessToken(accessToken);
-          TokenStorage.setRefreshToken(newRefreshToken);
-
-          // 원래 요청 재시도
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        console.error('토큰 갱신 실패:', refreshError);
-        TokenStorage.clearTokens();
-        window.location.href = '/';
+        await TokenStorage.clearTokens();
+      } catch (logoutError) {
+        console.error('로그아웃 처리 중 오류:', logoutError);
       }
+      
+      // 메인 페이지로 리다이렉트 (로그인 상태 초기화)
+      window.location.href = '/';
     }
 
     return Promise.reject(error);
